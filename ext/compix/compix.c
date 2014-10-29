@@ -1,40 +1,20 @@
 #include <ruby.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include "compix.h"
 
-// Types and macros from OilyPNG for compatibility
-typedef unsigned int PIXEL; // Pixels use 32 bits unsigned integers
-typedef unsigned char BYTE; // Bytes use 8 bits unsigned integers
-#define R_BYTE(pixel)  ((BYTE) (((pixel) & (PIXEL) 0xff000000) >> 24))
-#define G_BYTE(pixel)  ((BYTE) (((pixel) & (PIXEL) 0x00ff0000) >> 16))
-#define B_BYTE(pixel)  ((BYTE) (((pixel) & (PIXEL) 0x0000ff00) >> 8))
-#define A_BYTE(pixel)  ((BYTE) (((pixel) & (PIXEL) 0x000000ff)))
-
-void Init_compix();
-VALUE compix_compare_pixels(VALUE self, VALUE subimage, VALUE bigimage, 
-                            VALUE minCoord, VALUE maxCoord, VALUE threshold);
-                            
 void Init_compix(){
-  VALUE klass = rb_define_class("Compix", rb_cObject);
-  rb_define_singleton_method(klass, "compare_pixels", compix_compare_pixels, 5);
+  VALUE CompixModule = rb_define_module("Compix");
+  rb_define_singleton_method(CompixModule, "find_subimage", find_subimage, 3);
 }
 
-int getImgWidth(VALUE img){
-  int width = NUM2INT(rb_funcall(img, rb_intern("width"), 0));
-  return width;
-}
-
-int getImgHeight(VALUE img){
-  int height = NUM2INT(rb_funcall(img, rb_intern("height"), 0));
-  return height;
-}
-
-int comparePixels(PIXEL pone, PIXEL ptwo, int threshold){
-  unsigned char ored = R_BYTE(pone);
-  unsigned char ogreen = G_BYTE(pone);
-  unsigned char oblue = B_BYTE(pone);
-  unsigned char tred = R_BYTE(ptwo);
-  unsigned char tgreen = G_BYTE(ptwo);
-  unsigned char tblue = B_BYTE(ptwo);
+bool compare_pixels(PIXEL pone, PIXEL ptwo, int threshold){
+  BYTE ored = R_BYTE(pone);
+  BYTE ogreen = G_BYTE(pone);
+  BYTE oblue = B_BYTE(pone);
+  BYTE tred = R_BYTE(ptwo);
+  BYTE tgreen = G_BYTE(ptwo);
+  BYTE tblue = B_BYTE(ptwo);
   if(ored - tred > threshold || tred - ored > threshold ||
       ogreen - tgreen > threshold || tgreen - ogreen > threshold ||
       oblue - tblue > threshold || tblue - oblue > threshold){
@@ -43,7 +23,7 @@ int comparePixels(PIXEL pone, PIXEL ptwo, int threshold){
   return true;
 }
 
-int compareAt(unsigned int *pixelsSmall, unsigned int *pixelsBig, int thres, int bigXoffset, int bigYoffset,
+int compare_at(PIXEL *pixelsSmall, PIXEL *pixelsBig, int thres, int bigXoffset, int bigYoffset,
               int siwidth, int siheight, int sswidth, int ssheight){
   PIXEL firstPixel;
   PIXEL secPixel;
@@ -52,16 +32,16 @@ int compareAt(unsigned int *pixelsSmall, unsigned int *pixelsBig, int thres, int
   int x, y;
   int small_image_coord;
   int bigCoord = 0;
-  for(y = 0; y < siheight; y++){    
+  for(y = 0; y < siheight; y++){
     for(x = 0; x < siwidth; x++){
       small_image_coord = y * siwidth + x;
       firstPixel = pixelsSmall[small_image_coord];
       bigCoord = sswidth*(y+bigYoffset)+(x+bigXoffset);
-      if(bigCoord >= (sswidth)*(ssheight) - 2 ){
+      if(bigCoord >= (sswidth)*(ssheight) ){
         break;
       }
       secPixel = pixelsBig[bigCoord];
-      if(comparePixels(firstPixel, secPixel, thres)){
+      if(compare_pixels(firstPixel, secPixel, thres)){
         match++;
       } 
       else {
@@ -75,28 +55,41 @@ int compareAt(unsigned int *pixelsSmall, unsigned int *pixelsBig, int thres, int
   return match;
 }
 
-VALUE compix_compare_pixels(VALUE self, VALUE subimage, VALUE bigimage, 
-                            VALUE minCoord, VALUE maxCoord, VALUE threshold){  
-  VALUE pixelsf = rb_funcall(subimage, rb_intern("pixels"), 0);
-  VALUE pixelss = rb_funcall(bigimage, rb_intern("pixels"), 0);    
+PIXEL* image_to_bytearray(PIXEL *bytearray_ptr, VALUE image){
+  VALUE pixels = rb_funcall(image, rb_intern("pixels"), 0);
+  int x, y;
+
+  int width = NUM2INT(rb_funcall(image, rb_intern("width"), 0));
+  int height = NUM2INT(rb_funcall(image, rb_intern("height"), 0));
+
+  for(y = 0 ; y < height ; y++){
+    for(x = 0 ; x < width ; x++){
+      bytearray_ptr[y * width + x] = NUM2UINT(rb_ary_entry(pixels, y * width + x));
+    }
+  }
+  return bytearray_ptr;
+}
+
+VALUE find_subimage(VALUE self, VALUE subimage, VALUE bigimage, VALUE threshold){
+  VALUE subimage_match_obj;
   
-  int siwidth = getImgWidth(subimage);
-  int siheight = getImgHeight(subimage);
-  int sswidth = getImgWidth(bigimage);
-  int ssheight = getImgHeight(bigimage);
+  int siwidth = NUM2INT(rb_funcall(subimage, rb_intern("width"), 0));
+  int siheight = NUM2INT(rb_funcall(subimage, rb_intern("height"), 0));
+  int sswidth = NUM2INT(rb_funcall(bigimage, rb_intern("width"), 0));
+  int ssheight = NUM2INT(rb_funcall(bigimage, rb_intern("height"), 0));
   
-  unsigned int *bytearray_subimg = malloc(siwidth * siheight * sizeof(unsigned int));
-  unsigned int *bytearray_screenshot = malloc(sswidth * ssheight * sizeof(unsigned int));
+  PIXEL *bytearray_subimg = malloc(siwidth * siheight * sizeof(PIXEL));
+  PIXEL *bytearray_big_image = malloc(sswidth * ssheight * sizeof(PIXEL));
   
   int thres = NUM2UINT(threshold);
   int match = 0;
   int maxmatch = 0;
   int maxX = -1;
   int maxY = -1;
-  int xLeftLimit = NUM2INT(rb_ary_entry(minCoord, 0));
-  int yTopLimit = NUM2INT(rb_ary_entry(minCoord, 1));
-  int xRightLimit = NUM2INT(rb_ary_entry(maxCoord, 0));
-  int yBottomLimit = NUM2INT(rb_ary_entry(maxCoord, 1));
+  //int xLeftLimit = NUM2INT(rb_ary_entry(minCoord, 0));
+  //int yTopLimit = NUM2INT(rb_ary_entry(minCoord, 1));
+  //int xRightLimit = NUM2INT(rb_ary_entry(maxCoord, 0));
+  //int yBottomLimit = NUM2INT(rb_ary_entry(maxCoord, 1));
   // I didn't want to break backwards compatibility, so while this is less legible
   // and slower if old version of compix is used, it will still work.
   // The third and fourth entry in the array specifies from where to start checking the big image.
@@ -104,27 +97,15 @@ VALUE compix_compare_pixels(VALUE self, VALUE subimage, VALUE bigimage,
   int xstart = 0; //NUM2INT(rb_ary_entry(minCoord, 2));
   int ystart = 0 ; //NUM2INT(rb_ary_entry(minCoord, 3));
   int x, y;
-  int pixels = 0;
   int compPix = siwidth * siheight;
-  VALUE retArr;
-  int matchPercent;
   
   // Create bytearrays for pixels
-  for(y = 0 ; y < siheight ; y++){
-	  for(x = 0 ; x < siwidth ; x++){
-	    bytearray_subimg[y*siwidth + x] = NUM2UINT(rb_ary_entry(pixelsf,y*siwidth + x));
-	  }
-  }
-  for(y = 0 ; y < ssheight ; y++){
-	  for(x = 0 ; x < sswidth ; x++){
-	    bytearray_screenshot[y*sswidth + x] = NUM2UINT(rb_ary_entry(pixelss,y*sswidth + x));
-	  }
-  }
+  bytearray_subimg = image_to_bytearray(bytearray_subimg, subimage);
+  bytearray_big_image = image_to_bytearray(bytearray_big_image, bigimage);
   
-  
-  for(y = ystart ; y < yBottomLimit-siheight; y++){
-    for(x = xstart ; x < xRightLimit-siwidth; x++){
-      match = compareAt(bytearray_subimg, bytearray_screenshot, thres, x, y,
+  for(y = ystart ; y <= ssheight - siheight; y++){
+    for(x = xstart ; x <= sswidth - siwidth; x++){
+      match = compare_at(bytearray_subimg, bytearray_big_image, thres, x, y,
                         siwidth, siheight, sswidth, ssheight);
       if(match > maxmatch){
         maxmatch = match;
@@ -133,14 +114,19 @@ VALUE compix_compare_pixels(VALUE self, VALUE subimage, VALUE bigimage,
       }      
     }
   }
+
   free(bytearray_subimg);
-  free(bytearray_screenshot);
-  pixels = x * ( ssheight - siheight ) + y;
-  matchPercent = (100 * maxmatch) / compPix;
-  retArr = rb_ary_new();
-  rb_ary_push(retArr, INT2NUM(matchPercent));
-  rb_ary_push(retArr, INT2NUM(maxX));
-  rb_ary_push(retArr, INT2NUM(maxY));
-  rb_ary_push(retArr, INT2NUM(pixels));
-  return retArr;
+  free(bytearray_big_image);
+
+  subimage_match_obj = initialize_subimage_match_obj(maxX, maxY, compPix, maxmatch);
+  return subimage_match_obj;
+}
+
+VALUE initialize_subimage_match_obj(int coord_x, int coord_y, int pixels_compared, int pixels_matched){
+  VALUE mCompixModule = rb_const_get(rb_cObject, rb_intern("Compix"));
+  VALUE cSubimageMatch = rb_const_get(mCompixModule, rb_intern("SubimageMatch"));
+
+  VALUE match_obj = rb_funcall(cSubimageMatch, rb_intern("new"), 4, INT2NUM(coord_x), INT2NUM(coord_y),
+                                         INT2NUM(pixels_compared), INT2NUM(pixels_matched));
+  return match_obj;
 }
