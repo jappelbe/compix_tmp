@@ -6,7 +6,6 @@ Gem::Specification.new do |s|
   s.author  = "Jon Appelberg"
   
   s.files = Dir.glob("ext/**/*.{c,h,rb}") +
-            Dir.glob("lib/*.rb")
             Dir.glob("lib/**/*.rb")
 
   s.extensions << "ext/compix/extconf.rb"
