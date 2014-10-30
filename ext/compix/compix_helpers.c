@@ -15,18 +15,26 @@ PIXEL* image_to_bytearray(PIXEL *bytearray_ptr, VALUE image){
   return bytearray_ptr;
 }
 
-int integer_from_hash(VALUE hash, char* key, int default_value){
+int integer_from_hash(VALUE hash, char* key, int default_value, int min_value, int max_value){
   VALUE val = rb_hash_aref(hash, RB_SYM(key));
   if( TYPE(val) != T_NIL ) {
-    return NUM2INT(val);
+    int c_value = NUM2INT(val);
+    if ( c_value < min_value || c_value > max_value ){
+      rb_raise(rb_eArgError, "argument '%s' has value %d. Allowed range is %d..%d", key, c_value, min_value, max_value);
+    }
+    return c_value;
   }
   return default_value;
 }
 
-double float_from_hash(VALUE hash, char* key, double default_value){
+double float_from_hash(VALUE hash, char* key, double default_value, double min_value, double max_value){
   VALUE val = rb_hash_aref(hash, RB_SYM(key));
   if( TYPE(val) != T_NIL ) {
-    return NUM2DBL(val);
+    double c_value = NUM2DBL(val);
+    if ( c_value < min_value || c_value > max_value ){
+      rb_raise(rb_eArgError, "argument '%s' has value %d. Allowed range is %d..%d", key, c_value, min_value, max_value);
+    }
+    return c_value;
   }
   return default_value;
 }

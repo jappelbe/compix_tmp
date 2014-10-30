@@ -67,10 +67,10 @@ VALUE find_subimage(int argc, VALUE* argv, VALUE self){
 
   if(argc == 3){
     options_hash = argv[2];
-    color_threshold = integer_from_hash(options_hash, "threshold", 0);
-    xstart = integer_from_hash(options_hash, "start_coordinate_x", 0);
-    ystart = integer_from_hash(options_hash, "start_coordinate_y", 0);
-    pixels_threshold = float_from_hash(options_hash, "pixels_threshold", 0.85);
+    color_threshold = integer_from_hash(options_hash, "threshold", 0, 0, 255);
+    xstart = integer_from_hash(options_hash, "start_coordinate_x", 0, 0, INT_MAX);
+    ystart = integer_from_hash(options_hash, "start_coordinate_y", 0, 0, INT_MAX);
+    pixels_threshold = float_from_hash(options_hash, "pixels_threshold", 0.85, 0.0, 1.0);
   }
 
   VALUE subimage_match_obj;

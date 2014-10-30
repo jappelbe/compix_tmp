@@ -108,6 +108,29 @@ describe Compix do
         expect(subimage_match).to eql(expected_match)
       end
     end
+
+    context "options values" do
+      let(:subimage) { subimage = OilyPNG::Canvas.new(2,2, WHITE) }
+      let(:expected_match) { Compix::SubimageMatch.new(0, 0, 4, 4, 2, 2) }
+      it "minimum values should work" do
+        options_hash = { threshold: 0, pixel_threshold: 0.0, xstart: 0, ystart: 0 }
+        subimage_match = Compix::find_subimage(subimage, image, options_hash)
+        expect(subimage_match).to eql(expected_match)
+      end
+      it "maximum values should work" do
+        options_hash = { threshold: 255, pixel_threshold: 1.0, xstart: 999, ystart: 999 }
+        subimage_match = Compix::find_subimage(subimage, image, options_hash)
+        expect(subimage_match).to eql(expected_match)
+      end
+      it "less than minumum values should not work" do
+        options_hash = { threshold: -1, pixel_threshold: -0.1, xstart: -1, ystart: -1 }
+        expect{ Compix::find_subimage(subimage, image, options_hash) }.to raise_error(ArgumentError)
+      end
+      it "more than minumum values should not work" do
+        options_hash = { threshold: 256, pixel_threshold: 1.1, xstart: 0, ystart: 0 }
+        expect{ Compix::find_subimage(subimage, image, options_hash) }.to raise_error(ArgumentError)
+      end
+    end
   end
 
   describe "#find_all_instances_of_subimage" do
