@@ -83,4 +83,11 @@ describe Compix::SubimageMatch do
       end
     end
   end
+
+  describe "#coordinate_middle" do
+    it "returns correct middle point" do
+      subimage_match = Compix::SubimageMatch.new(10, 15, 16, 16, 4, 4)
+      expect(subimage_match.coordinate_middle).to eq([12, 17])
+    end
+  end
 end

@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name    = "compix"
-  s.version = "0.2.0"
+  s.version = "0.2.1"
   s.summary = "Compix for oilypng"
   s.homepage = "https://github.com/jappelbe/compix_tmp"
   s.author  = "Jon Appelberg"

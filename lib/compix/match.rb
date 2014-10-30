@@ -40,4 +40,10 @@ class Compix::SubimageMatch
   def state
     [@coordinate_x, @coordinate_y, @pixels_compared, @pixels_matched]
   end
+
+  def coordinate_middle
+    x = @coordinate_x + @width / 2
+    y = @coordinate_y + @height / 2
+    return [x, y]
+  end
 end
